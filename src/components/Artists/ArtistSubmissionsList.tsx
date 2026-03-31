@@ -1,0 +1,302 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
+import {
+  getArtistSubmissionsApi,
+  approveSubmissionApi,
+  rejectSubmissionApi,
+  deleteSubmissionApi,
+} from "../../api/artistSubmissionApi";
+import { MoreVertical } from "lucide-react";
+
+type Submission = {
+  _id: string;
+  name: string;
+  artTypeName: string;
+  city: string;
+  state: string;
+  country: string;
+  bio: string;
+  image: string;
+  status: "pending" | "approved" | "rejected";
+};
+
+export default function ArtistSubmissionsList() {
+  const [data, setData] = useState<Submission[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [actionId, setActionId] = useState<string | null>(null);
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [viewItem, setViewItem] = useState<Submission | null>(null);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const res = await getArtistSubmissionsApi();
+      setData(res.data.data);
+    } catch {
+      toast.error("Failed to load submissions");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+
+      if (!target.closest(".submission-menu")) {
+        setOpenMenu(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const handleDelete = async (id: string) => {
+    try {
+      setActionId(id);
+
+      await deleteSubmissionApi(id); // soft delete now
+
+      toast.success("Moved to deleted artists");
+
+      await loadData(); // reload list
+    } catch {
+      toast.error("Delete failed");
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const handleStatusChange = async (
+    id: string,
+    value: "approved" | "rejected" | "pending",
+  ) => {
+    try {
+      setActionId(id);
+
+      if (value === "approved") {
+        await approveSubmissionApi(id);
+        toast.success("Artist approved");
+      } else if (value === "rejected") {
+        await rejectSubmissionApi(id);
+        toast.success("Submission rejected");
+      }
+
+      await loadData();
+    } catch {
+      toast.error("Status update failed");
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const pendingSubmissions = data.filter((item) => item.status === "pending");
+
+  return (
+    <div className="p-3 sm:p-4 md:p-5 lg:p-6 bg-white rounded-lg sm:rounded-xl shadow overflow-x-hidden">
+      {loading && (
+        <div className="text-center py-8 sm:py-10 text-gray-500 text-sm sm:text-base">
+          Loading submissions...
+        </div>
+      )}
+
+      {!loading && data.length > 0 && pendingSubmissions.length === 0 && (
+        <div className="text-center py-8 sm:py-10 text-gray-500 text-sm sm:text-base">
+          No submissions yet
+        </div>
+      )}
+
+      {/* Submissions List */}
+      <div className="space-y-3 sm:space-y-4">
+        {pendingSubmissions.map((item) => (
+          <div
+            key={item._id}
+            className="border rounded-lg sm:rounded-xl p-3 sm:p-4 flex flex-col sm:flex-row gap-3 sm:gap-4 items-start">
+
+            {/* Image */}
+            <img
+              src={item.image}
+              alt={item.name}
+              className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg object-cover border"
+            />
+
+            {/* Content - Flex column on mobile */}
+            <div className="flex-1 w-full sm:w-auto">
+              <h3 className="font-semibold text-sm sm:text-base md:text-lg">{item.name}</h3>
+
+              <p className="text-xs sm:text-sm text-gray-500">
+                {item.artTypeName} • {item.city}, {item.state}
+              </p>
+
+              <div className="mt-1 sm:mt-2">
+                <span
+                  className={`px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs rounded-full font-medium ${item.status === "pending"
+                    ? "bg-yellow-100 text-yellow-700"
+                    : item.status === "approved"
+                      ? "bg-green-100 text-green-700"
+                      : "bg-red-100 text-red-700"
+                    }`}>
+                  {item.status}
+                </span>
+              </div>
+            </div>
+
+            {/* Actions - Right side */}
+            <div className="flex flex-row items-center gap-2 w-full sm:w-auto justify-end sm:justify-start">
+              {/* Status Select */}
+              <select
+                value={item.status}
+                disabled={actionId === item._id}
+                onChange={(e) =>
+                  handleStatusChange(
+                    item._id,
+                    e.target.value as "approved" | "rejected" | "pending",
+                  )
+                }
+                className="border rounded-lg px-2 py-1 text-sm"
+              >
+                {actionId === item._id ? (
+                  <option>Updating...</option>
+                ) : (
+                  <>
+                    <option value="pending" disabled={item.status !== "pending"}>
+                      Pending
+                    </option>
+                    <option value="approved" disabled={item.status === "approved"}>
+                      Approve
+                    </option>
+                    <option value="rejected" disabled={item.status === "rejected"}>
+                      Reject
+                    </option>
+                  </>
+                )}
+              </select>
+
+              {/* Menu Dropdown */}
+              <div className="relative submission-menu">
+                <button
+                  onClick={() =>
+                    setOpenMenu(openMenu === item._id ? null : item._id)
+                  }
+                  className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg">
+                  <MoreVertical size={16} />
+                </button>
+
+                {openMenu === item._id && (
+                  <div className="absolute right-0 top-8 sm:top-10 w-28 sm:w-32 bg-white border rounded-lg shadow z-20 text-xs sm:text-sm">
+                    <button
+                      onClick={() => {
+                        setViewItem(item);
+                        setOpenMenu(null);
+                      }}
+                      className="block w-full px-3 sm:px-4 py-1.5 sm:py-2 text-left hover:bg-gray-100">
+                      View
+                    </button>
+
+                    <button
+                      onClick={() => handleDelete(item._id)}
+                      disabled={actionId === item._id}
+                      className="block w-full px-4 py-2 text-left text-red-600 hover:bg-gray-100 disabled:opacity-50"
+                    >
+                      {actionId === item._id ? "Removing..." : "Remove"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* View Details Modal - Responsive */}
+      {viewItem && (
+        <div
+          className="fixed inset-0 bg-white/20 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4"
+          onClick={() => setViewItem(null)}>
+          <div
+            className="bg-white w-full max-w-[95%] sm:max-w-lg md:max-w-xl rounded-xl sm:rounded-2xl overflow-hidden relative shadow-xl border border-[#F3E6E4]"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="p-4 sm:p-5 md:p-6">
+              {/* Close Button */}
+              <button
+                onClick={() => setViewItem(null)}
+                className="absolute top-3 sm:top-4 right-3 sm:right-4 w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 rounded-full bg-[#F8E7DC] text-[#83261D] hover:bg-[#83261D] hover:text-white transition flex items-center justify-center text-sm sm:text-base z-10">
+                ✕
+              </button>
+
+              {/* Image */}
+              <img
+                src={viewItem.image}
+                alt={viewItem.name}
+                className="w-full h-40 sm:h-48 md:h-56 object-cover rounded-lg sm:rounded-xl mb-4 sm:mb-5 md:mb-6 border"
+              />
+
+              {/* Title */}
+              <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-[#83261D] mb-4 sm:mb-5 md:mb-6">
+                Artist Details
+              </h2>
+
+              {/* Details Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 md:gap-5 text-xs sm:text-sm">
+                <div>
+                  <p className="text-[#83261D] text-[10px] sm:text-xs font-semibold uppercase tracking-wide">
+                    Artist Name
+                  </p>
+                  <p className="text-gray-800 font-medium break-words">{viewItem.name}</p>
+                </div>
+
+                <div>
+                  <p className="text-[#83261D] text-[10px] sm:text-xs font-semibold uppercase tracking-wide">
+                    Art Form
+                  </p>
+                  <p className="text-gray-800 font-medium break-words">
+                    {viewItem.artTypeName}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-[#83261D] text-[10px] sm:text-xs font-semibold uppercase tracking-wide">
+                    City
+                  </p>
+                  <p className="text-gray-800 font-medium break-words">{viewItem.city}</p>
+                </div>
+
+                <div>
+                  <p className="text-[#83261D] text-[10px] sm:text-xs font-semibold uppercase tracking-wide">
+                    State
+                  </p>
+                  <p className="text-gray-800 font-medium break-words">{viewItem.state}</p>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <p className="text-[#83261D] text-[10px] sm:text-xs font-semibold uppercase tracking-wide">
+                    Country
+                  </p>
+                  <p className="text-gray-800 font-medium break-words">
+                    {viewItem.country}
+                  </p>
+                </div>
+              </div>
+
+              {/* Bio Section */}
+              <div className="mt-4 sm:mt-5 md:mt-6">
+                <p className="text-[#83261D] text-[10px] sm:text-xs font-semibold uppercase mb-1 sm:mb-2 tracking-wide">
+                  Bio
+                </p>
+                <div className="bg-[#F8E7DC] p-3 sm:p-4 rounded-lg sm:rounded-xl text-xs sm:text-sm text-gray-800 leading-relaxed border border-[#F1D6D2] max-h-32 sm:max-h-40 overflow-y-auto">
+                  {viewItem.bio}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
