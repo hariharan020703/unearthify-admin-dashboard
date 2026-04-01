@@ -166,7 +166,7 @@ export default function AddEvent() {
       toast.success("Event updated");
     } else {
       // ✅ Create via admin submission endpoint (like artist bulkCreate)
-      await api.post("/event-submissions/admin", formData);
+      await api.post("/events", formData);
       toast.success("Event created");
     }
 

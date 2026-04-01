@@ -18,8 +18,8 @@ export const getDeletedEventSubmissionsApi = () =>
 export const approveEventApi = (id: string) =>
   api.patch(`/event-submissions/${id}/approve`);
 
-export const rejectEventApi = (id: string) =>
-  api.patch(`/event-submissions/${id}/reject`);
+export const rejectEventApi = (id: string, reason: string) =>
+  api.patch(`/event-submissions/${id}/reject`, { reason });
 
 export const deleteEventSubmissionApi = (id: string) =>
   api.patch(`/event-submissions/${id}/soft-delete`);  // ← fixed

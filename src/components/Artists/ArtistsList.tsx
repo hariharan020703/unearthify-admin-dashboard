@@ -260,6 +260,8 @@ function ArtistsList() {
       City: a.city,
       State: a.state,
       Country: a.country,
+      Email: a.email,
+      "Phone Numner": a.phone
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
@@ -297,7 +299,7 @@ function ArtistsList() {
     });
   };
   const handleDownloadTemplate = () => {
-    const headers = [["name", "artTypeName", "city", "state", "country", "bio"]];
+    const headers = [["name", "artTypeName", "city", "state", "country", "bio", "email", "phone"]];
 
     const worksheet = XLSX.utils.aoa_to_sheet(headers);
 
@@ -308,7 +310,7 @@ function ArtistsList() {
       alignment: { horizontal: "center" },
     };
 
-    ["A1", "B1", "C1", "D1", "E1", "F1"].forEach((cell) => {
+    ["A1", "B1", "C1", "D1", "E1", "F1", "G1", "H1"].forEach((cell) => {
       if (worksheet[cell]) worksheet[cell].s = headerStyle;
     });
 
@@ -320,6 +322,8 @@ function ArtistsList() {
       { wch: 15 },
       { wch: 15 },
       { wch: 40 },
+      { wch: 20 },
+      { wch: 20 }
     ];
 
     const workbook = XLSX.utils.book_new();
@@ -733,8 +737,7 @@ function ArtistsList() {
         <div
           className="fixed inset-0 backdrop-blur-[0.5px] bg-white/0.8 flex items-center justify-center z-50 px-3 sm:px-4"
           onClick={() => setViewArtist(null)}>
-          <div
-            className="bg-white w-full max-w-[90%] sm:max-w-lg md:max-w-xl rounded-xl sm:rounded-2xl md:rounded-[2rem] overflow-hidden relative shadow-sm"
+          <div className="bg-white w-full max-w-[90%] sm:max-w-lg md:max-w-xl h-[85vh] rounded-xl sm:rounded-2xl md:rounded-[2rem] overflow-hidden relative shadow-sm flex flex-col"
             onClick={(e) => e.stopPropagation()}>
             <button
               onClick={() => setViewArtist(null)}
@@ -771,7 +774,7 @@ function ArtistsList() {
               )}
             </div>
 
-            <div className="px-4 sm:px-5 md:px-6 lg:px-8 pb-4 sm:pb-5 md:pb-6 lg:pb-8 -mt-8 sm:-mt-10 md:-mt-12 relative z-10">
+            <div className="px-4 sm:px-5 md:px-6 lg:px-8 pb-4 sm:pb-5 md:pb-6 lg:pb-8 -mt-8 sm:-mt-10 md:-mt-12 relative z-10 overflow-y-auto flex-1">
               <div className="inline-flex items-center bg-[#83261D] text-white text-[8px] sm:text-[9px] md:text-[10px] uppercase tracking-wider font-bold px-2 sm:px-2.5 md:px-3 py-0.5 sm:py-1 rounded-md mb-2 sm:mb-3 shadow-md">
                 <span className="mr-1">🎨</span>{" "}
                 {viewArtist.artTypeName || "Artist"}

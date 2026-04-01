@@ -7,8 +7,8 @@ export const getPendingArtistRequestsApi = () =>
 export const approveArtistRequestApi = (id: string) =>
   api.put(`${API.ARTIST_REQUEST}/approve/${id}`);
 
-export const rejectArtistRequestApi = (id: string) =>
-  api.put(`${API.ARTIST_REQUEST}/reject/${id}`);
+export const rejectArtistRequestApi = (id: string, reason: string) =>
+  api.put(`${API.ARTIST_REQUEST}/reject/${id}`, { reason });
 
 export const getAllArtistRequestsApi = () =>
   api.get(`${API.ARTIST_REQUEST}/all`);

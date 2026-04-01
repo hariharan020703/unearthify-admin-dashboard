@@ -6,8 +6,8 @@ export const getArtistSubmissionsApi = () =>
 export const approveSubmissionApi = (id: string) =>
   api.patch(`/artist-submissions/${id}/approve`);
 
-export const rejectSubmissionApi = (id: string) =>
-  api.patch(`/artist-submissions/${id}/reject`);
+export const rejectSubmissionApi = (id: string, reason: string) =>
+  api.patch(`/artist-submissions/${id}/reject`, { reason });
 
 export const createAdminSubmissionApi = (formData: FormData) =>
   api.post("/artist-submissions/admin", formData);

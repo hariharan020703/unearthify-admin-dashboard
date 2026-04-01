@@ -1,10 +1,5 @@
 import api from "./axios";
 
-// ==========================
-// 🔥 PUBLIC
-// ==========================
-
-// GET ALL (non-deleted)
 export const getAllEventsApi = () =>
   api.get("/events");
 
@@ -15,10 +10,6 @@ export const getUpcomingEventsApi = () =>
 // SINGLE
 export const getEventByIdApi = (id: string) =>
   api.get(`/events/${id}`);
-
-// ==========================
-// 🔥 ADMIN
-// ==========================
 
 // CREATE
 export const createEventApi = (data: FormData) =>

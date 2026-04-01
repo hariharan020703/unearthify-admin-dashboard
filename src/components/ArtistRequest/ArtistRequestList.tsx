@@ -26,7 +26,8 @@ const ArtistRequestsList = () => {
     const [rejectingId, setRejectingId] = useState<string | null>(null);
     const [search, setSearch] = useState("");
     const [showFilter, setShowFilter] = useState(false);
-
+    const [rejectModal, setRejectModal] = useState<{ open: boolean; artistId: string | null }>({ open: false, artistId: null });
+    const [rejectReason, setRejectReason] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
     const [tempStatus, setTempStatus] = useState("");
     const menuRef = useRef<HTMLDivElement>(null);
@@ -109,10 +110,10 @@ const ArtistRequestsList = () => {
     };
 
     // REJECT
-    const handleReject = async (id: string) => {
+    const handleReject = async (id: string, reason: string) => {
         try {
             setRejectingId(id);
-            await rejectArtistRequestApi(id);
+            await rejectArtistRequestApi(id, reason);
             setArtists((prev) =>
                 prev.map((a) =>
                     a._id === id ? { ...a, status: "rejected" } : a
@@ -126,6 +127,13 @@ const ArtistRequestsList = () => {
         } finally {
             setRejectingId(null);
         }
+    };
+
+    const openRejectModal = (id: string) => {
+        setRejectModal({ open: true, artistId: id });
+        setRejectReason("");
+        setOpenMenuId(null);
+        setViewArtist(null);
     };
 
     if (loading) {
@@ -340,7 +348,7 @@ const ArtistRequestsList = () => {
 
                                                     {/* Reject */}
                                                     <button
-                                                        onClick={() => handleReject(artist._id)}
+                                                        onClick={() => openRejectModal(artist._id)}
                                                         disabled={rejectingId === artist._id}
                                                         className="w-full flex items-center gap-2 px-3 py-2 text-xs sm:text-sm transition-colors"
                                                     >
@@ -524,7 +532,7 @@ const ArtistRequestsList = () => {
                             </button>
                             <button
                                 onClick={() => {
-                                    handleReject(viewArtist._id);
+                                    openRejectModal(viewArtist._id);
                                     setViewArtist(null);
                                 }}
                                 disabled={rejectingId === viewArtist._id}
@@ -540,6 +548,59 @@ const ArtistRequestsList = () => {
                                         Reject
                                     </>
                                 )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {rejectModal.open && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4"
+                    onClick={() => setRejectModal({ open: false, artistId: null })}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md"
+                        onClick={(e) => e.stopPropagation()}>
+
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-red-600 to-red-700 flex items-center justify-between p-5 rounded-t-2xl">
+                            <h2 className="text-lg font-bold text-white">Reject Artist Request</h2>
+                            <button onClick={() => setRejectModal({ open: false, artistId: null })}
+                                className="p-2 rounded-xl hover:bg-white/20 transition-all">
+                                <X size={18} className="text-white" />
+                            </button>
+                        </div>
+
+                        {/* Body */}
+                        <div className="p-6 space-y-4">
+                            <p className="text-sm text-gray-600">
+                                Please provide a reason for rejection. This will be sent to the artist via email.
+                            </p>
+                            <textarea
+                                value={rejectReason}
+                                onChange={(e) => setRejectReason(e.target.value)}
+                                placeholder="Enter rejection reason..."
+                                rows={4}
+                                className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-red-400 outline-none resize-none"
+                            />
+                        </div>
+
+                        {/* Footer */}
+                        <div className="flex justify-end gap-3 p-5 border-t border-gray-100">
+                            <button onClick={() => setRejectModal({ open: false, artistId: null })}
+                                className="px-5 py-2.5 text-sm bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200">
+                                Cancel
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    if (rejectModal.artistId) {
+                                        await handleReject(rejectModal.artistId, rejectReason);
+                                        setRejectModal({ open: false, artistId: null });
+                                    }
+                                }}
+                                disabled={rejectingId === rejectModal.artistId}
+                                className="px-5 py-2.5 text-sm bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:shadow-lg disabled:opacity-50 flex items-center gap-2">
+                                {rejectingId === rejectModal.artistId ? (
+                                    <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Rejecting...</>
+                                ) : "Confirm Reject"}
                             </button>
                         </div>
                     </div>
