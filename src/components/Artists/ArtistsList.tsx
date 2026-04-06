@@ -10,6 +10,7 @@ import ConfirmModal from "../common/ConfirmModal";
 import Papa from "papaparse";
 import { bulkCreateArtistsApi } from "../../api/artistApi";
 import * as XLSX from "xlsx";
+import { getAllCategoriesApi } from "../../api/artCategoryApi";
 
 type ArtistImage = {
   url: string;
@@ -289,17 +290,38 @@ function ArtistsList() {
 
     setCsvFile(file);
 
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        setCsvPreview(results.data.slice(0, 5));
+    const fileType = file.name.split(".").pop();
+
+    if (fileType === "csv") {
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          setCsvPreview(results.data.slice(0, 5));
+          setShowCsvModal(true);
+        },
+      });
+    } else if (fileType === "xlsx") {
+      const reader = new FileReader();
+
+      reader.onload = (evt: any) => {
+        const data = new Uint8Array(evt.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(sheet);
+
+        setCsvPreview(jsonData.slice(0, 5));
         setShowCsvModal(true);
-      },
-    });
+      };
+
+      reader.readAsArrayBuffer(file);
+    } else {
+      toast.error("Unsupported file type");
+    }
   };
   const handleDownloadTemplate = () => {
-    const headers = [["name", "artTypeName", "city", "state", "country", "bio", "email", "phone"]];
+    const headers = [["name", "categoryName", "artTypeName", "city", "state", "country", "bio", "email", "phone"]];
 
     const worksheet = XLSX.utils.aoa_to_sheet(headers);
 
@@ -310,12 +332,13 @@ function ArtistsList() {
       alignment: { horizontal: "center" },
     };
 
-    ["A1", "B1", "C1", "D1", "E1", "F1", "G1", "H1"].forEach((cell) => {
+    ["A1", "B1", "C1", "D1", "E1", "F1", "G1", "H1", "I1"].forEach((cell) => {
       if (worksheet[cell]) worksheet[cell].s = headerStyle;
     });
 
 
     worksheet["!cols"] = [
+      { wch: 20 },
       { wch: 20 },
       { wch: 20 },
       { wch: 15 },
@@ -335,27 +358,88 @@ function ArtistsList() {
     if (!csvFile) return;
 
     try {
-      const parsed: any = await new Promise((resolve) => {
-        Papa.parse(csvFile, {
-          header: true,
-          skipEmptyLines: true,
-          complete: (results) => resolve(results.data),
+      let parsed: any = [];
+
+      const fileType = csvFile.name.split(".").pop();
+
+      if (fileType === "csv") {
+        parsed = await new Promise((resolve) => {
+          Papa.parse(csvFile, {
+            header: true,
+            skipEmptyLines: true,
+            complete: (results) => resolve(results.data),
+          });
         });
-      });
+      } else if (fileType === "xlsx") {
+        const data = await csvFile.arrayBuffer();
+        const workbook = XLSX.read(data);
+
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        parsed = XLSX.utils.sheet_to_json(sheet);
+      }
+
+      // STEP 1: get categories with artTypes
+      const categoriesRes = await getAllCategoriesApi();
+      const categories = categoriesRes.data.data || [];
+
+      // STEP 2: transform CSV → DB format
+      const errors: any[] = [];
+
+      const transformed = parsed.map((row: any, index: number) => {
+        const category = categories.find(
+          (c: any) =>
+            c.name.toLowerCase().trim() === row.categoryName?.toLowerCase().trim()
+        );
+
+        const artType = category?.artTypes?.find(
+          (t: any) =>
+            t.name.toLowerCase().trim() === row.artTypeName?.toLowerCase().trim()
+        );
+
+        if (!category || !artType) {
+          errors.push({
+            row: index + 1,
+            message: "Invalid category or art type",
+          });
+          return null;
+        }
+
+        return {
+          name: row.name,
+          category: category._id,
+          artTypeId: artType._id,
+          artTypeName: artType.name,
+          city: row.city,
+          state: row.state,
+          country: row.country,
+          bio: row.bio,
+          email: row.email,
+          phone: row.phone,
+        };
+      }).filter(Boolean);
+
+      if (transformed.length === 0) {
+        toast.error("No valid data to upload");
+        return;
+      }
 
       const res = await bulkCreateArtistsApi({
-        artists: parsed,
+        artists: transformed,
       });
 
       const inserted = res.data.inserted || 0;
       const skipped = res.data.skipped || 0;
-      const total = parsed.length;
+      const total = transformed.length;
 
       if (inserted === 0 && total > 0) {
         toast("All records already exist — nothing uploaded", {
           icon: "⚠️",
         });
         return;
+      }
+
+      if (errors.length > 0) {
+        toast.error(`Invalid data in row ${errors[0].row}`);
       }
 
       if (inserted > 0 && skipped > 0) {
@@ -379,7 +463,7 @@ function ArtistsList() {
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 mb-4">
         <input
           type="file"
-          accept=".csv"
+          accept=".csv, .xlsx"
           ref={fileInputRef}
           onChange={handleCsvUpload}
           className="hidden"
@@ -707,8 +791,8 @@ function ArtistsList() {
                     key={i}
                     onClick={() => setPage(i + 1)}
                     className={`px-3 py-1 border rounded ${page === i + 1
-                        ? "bg-[#83261D] text-white border-[#83261D]"
-                        : "hover:bg-gray-100"
+                      ? "bg-[#83261D] text-white border-[#83261D]"
+                      : "hover:bg-gray-100"
                       }`}
                   >
                     {i + 1}
